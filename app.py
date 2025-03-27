@@ -4,7 +4,7 @@ import pandas as pd  # Required for XGBoost
 import numpy as np
 
 # Load the trained XGBoost model
-model_path = r"C:\Users\USER\Documents\irrigation model\irrigation model\xgboostmodel\xgboost_irrigation_model.pkl"
+model_path = os.path.join(os.path.dirname(__file__), "xgboost_irrigation_model.pkl")
 with open(model_path, "rb") as file:
     model = pickle.load(file)
 
