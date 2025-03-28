@@ -13,7 +13,7 @@ with open(xgb_model_path, "rb") as file:
     xgb_model = pickle.load(file)
 
 # Load LSTM Model
-lstm_model_path = os.path.join(os.path.dirname(__file__), "lstm_irrigation_model.h5")
+lstm_model_path = os.path.join(os.path.dirname(__file__), "lstm_irrigation.h5")
 lstm_model = tf.keras.models.load_model(lstm_model_path)
 
 # Feature columns expected in request JSON
