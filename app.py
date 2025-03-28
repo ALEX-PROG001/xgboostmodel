@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify
 import pickle
 import pandas as pd  # Required for XGBoost
 import numpy as np
+import os
+
 
 # Load the trained XGBoost model
 model_path = os.path.join(os.path.dirname(__file__), "xgboost_irrigation_model.pkl")
