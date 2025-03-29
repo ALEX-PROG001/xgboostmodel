@@ -1,51 +1,46 @@
 import numpy as np
 import pandas as pd
 import joblib
+import os
 from tensorflow.keras.models import load_model
 
-# Load trained model
-model = load_model('lstm_irrigation.h5')
+# --- Load Model & Scalers ---
+base_path = os.path.dirname(__file__)  
+model_path = os.path.join(base_path, "improved_lstm_etc_model.h5")
+scaler_X_path = os.path.join(base_path, "scaler_X.pkl")
+scaler_y_path = os.path.join(base_path, "scaler_y.pkl")
 
-# Load scaler
-scaler = joblib.load('scaler.pkl')
+model = load_model(model_path)
+scaler_X = joblib.load(scaler_X_path)
+scaler_y = joblib.load(scaler_y_path)
 
-# Load original feature order
-original_feature_order = scaler.feature_names_in_.tolist()
-
-# Define new input data (single row)
+# --- Define New Input Data ---
 new_data = pd.DataFrame([{
-    'Kc': 0,
-    'ETc_day': 5.5,
-    'ETc_dec': 50,
-    'EffRain': 8,
-    'IrrReq': 0,
-    'Min Temp': 0,
-    'Max Temp': 0,
-    'Humidity': 0,
-    'Wind': 0,
-    'Sun': 0,
-    'Rad': 0,
-    'ETo': 0
+    'Min Temp': 15.0,
+    'Max Temp': 28.0,
+    'Humidity': 70.0,
+    'Kc': 0.85
 }])
 
-# Reorder to match training feature order
-new_data = new_data[original_feature_order]
+# --- Feature Engineering (Ensure Features Match Model) ---
+new_data["Temp_Diff"] = new_data["Max Temp"] - new_data["Min Temp"]
+new_data["Humidity_Squared"] = new_data["Humidity"] ** 2
 
-# Scale data
-scaled_new_data = scaler.transform(new_data)
+# Reorder columns to match training features
+feature_columns = ["Min Temp", "Max Temp", "Humidity", "Kc", "Temp_Diff", "Humidity_Squared"]
+new_data = new_data[feature_columns]
 
-# **Fix**: Repeat the data 10 times to create a valid sequence for LSTM
-X_new = np.tile(scaled_new_data, (10, 1))  # Shape becomes (10, 12)
+# --- Scale Data ---
+scaled_new_data = scaler_X.transform(new_data)
 
-# Reshape to match LSTM expected input shape: (1, 10, 12)
-X_new = np.expand_dims(X_new, axis=0)
+# --- Reshape Data for LSTM (10 time steps needed) ---
+X_new = np.tile(scaled_new_data, (10, 1))  # Repeat row 10 times
+X_new = np.expand_dims(X_new, axis=0)  # Reshape to (1, 10, features)
 
-# Predict irrigation requirement
+# --- Predict ETc ---
 pred_scaled = model.predict(X_new)
 
-# Reverse scaling
-pred_irrigation = scaler.inverse_transform(
-    np.hstack([pred_scaled, np.zeros((pred_scaled.shape[0], scaled_new_data.shape[1] - 1))])
-)[:, 0][0]
+# --- Reverse Scaling ---
+pred_etc = scaler_y.inverse_transform(pred_scaled)[0][0]
 
-print(f"Predicted Irrigation Requirement: {pred_irrigation:.2f} mm/dec")
+print(f" Predicted ETc: {pred_etc:.2f} mm/day")
