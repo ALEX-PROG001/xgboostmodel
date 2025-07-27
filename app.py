@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify 
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pickle
 import pandas as pd
@@ -9,17 +9,16 @@ import traceback
 import joblib
 
 app = Flask(__name__)
-
-# CORS for frontend (you should update the domain to your actual frontend URL in production)
+# Configure CORS to allow requests from React frontend
 CORS(app, resources={
-    r"/*": {
-        "origins": ["http://localhost:5173"],  # Replace with frontend domain if needed
+    r"/*": {  # All routes
+        "origins": ["http://localhost:5173"],  # React dev server
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type"]
     }
 })
 
-# Load models
+# Load XGBoost Model
 try:
     xgb_model_path = os.path.join(os.path.dirname(__file__), "xgboost_irrigation_model.pkl")
     with open(xgb_model_path, "rb") as file:
@@ -29,6 +28,7 @@ except Exception as e:
     print("Error loading XGBoost model:", e)
     xgb_model = None
 
+# Load LSTM Model
 try:
     lstm_model_path = os.path.join(os.path.dirname(__file__), "improved_lstm_etc_model.h5")
     lstm_model = tf.keras.models.load_model(lstm_model_path)
@@ -37,6 +37,7 @@ except Exception as e:
     print("Error loading LSTM model:", e)
     lstm_model = None
 
+# Load Q-learning Q-table
 try:
     q_table_path = os.path.join(os.path.dirname(__file__), "q_table.npy")
     Q_table = np.load(q_table_path)
@@ -45,6 +46,7 @@ except Exception as e:
     print("Error loading Q-table:", e)
     Q_table = None
 
+# Load Scalers
 try:
     scaler_X = joblib.load(os.path.join(os.path.dirname(__file__), "scaler_X.pkl"))
     scaler_y = joblib.load(os.path.join(os.path.dirname(__file__), "scaler_y.pkl"))
@@ -53,8 +55,10 @@ except Exception as e:
     print("Error loading scalers:", e)
     scaler_X, scaler_y = None, None
 
+# Feature Columns
 FEATURE_COLUMNS = ["Min Temp", "Max Temp", "Humidity", "Kc", "Temp_Diff", "Humidity_Squared"]
 
+# Define Bins for Q-learning
 temp_bins = np.linspace(-5, 50, num=5)
 humidity_bins = np.linspace(0, 100, num=5)
 kc_bins = np.linspace(0, 1.5, num=5)
@@ -109,16 +113,28 @@ def predict_lstm():
         if missing_features:
             return jsonify({"error": f"Missing features: {missing_features}"}), 400
 
+        # Compute additional features
         temp_diff = data["Max Temp"] - data["Min Temp"]
         humidity_squared = data["Humidity"] ** 2
 
-        input_data = np.array([[data["Min Temp"], data["Max Temp"], data["Humidity"], data["Kc"], temp_diff, humidity_squared]])
+        # Create input array
+        input_data = np.array([[
+            data["Min Temp"], 
+            data["Max Temp"], 
+            data["Humidity"], 
+            data["Kc"], 
+            temp_diff, 
+            humidity_squared
+        ]])
 
+        # Normalize input
         input_scaled = scaler_X.transform(input_data)
 
+        # Prepare input for LSTM
         input_padded = np.zeros((1, 10, len(FEATURE_COLUMNS)))
         input_padded[:, -1, :] = input_scaled
 
+        # Make prediction
         prediction_scaled = lstm_model.predict(input_padded)[0][0]
         predicted_ETc = scaler_y.inverse_transform([[prediction_scaled]])[0][0]
 
@@ -131,18 +147,22 @@ def predict_lstm():
 
 def predict_etc_qlearning(min_temp, max_temp, humidity, kc):
     try:
+        # Convert inputs to state indices
         temp_idx = np.digitize((min_temp + max_temp) / 2, temp_bins) - 1
         humidity_idx = np.digitize(humidity, humidity_bins) - 1
         kc_idx = np.digitize(kc, kc_bins) - 1
 
+        # Ensure indices are within bounds
         temp_idx = np.clip(temp_idx, 0, len(temp_bins) - 2)
         humidity_idx = np.clip(humidity_idx, 0, len(humidity_bins) - 2)
         kc_idx = np.clip(kc_idx, 0, len(kc_bins) - 2)
 
+        # Get state and prediction
         state = (temp_idx, humidity_idx, kc_idx)
         etc_prediction = np.median(Q_table[state])
         etc_prediction = np.clip(etc_prediction, 0, np.max(Q_table))
 
+        # Scale output if available
         if scaler_y is not None:
             etc_prediction = scaler_y.inverse_transform([[etc_prediction]])[0][0]
 
@@ -179,5 +199,5 @@ def predict_qlearning():
         print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
-# For mod_wsgi compatibility
-application = app
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=5001)
