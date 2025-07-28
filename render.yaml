@@ -1,9 +1,10 @@
 services:
   - type: web
-    name: irrigation-model-api
+    name: irrigation-prediction-api
     env: python
-    buildCommand: pip install -r requirements.txt
+    region: oregon
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
       - key: PYTHON_VERSION
-        value: 3.9.0
+        value: 3.8.18
