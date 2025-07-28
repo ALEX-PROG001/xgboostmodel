@@ -11,15 +11,15 @@ import joblib
 app = Flask(__name__)
 # Configure CORS to allow requests from React frontend
 CORS(app, resources={
-    r"/*": {  # All routes
-        "origins": ["http://localhost:5173"<
-                     "https://your-frontend-domain.onrender.com"
-                    ],  # React dev server
+    r"/*": {
+        "origins": [
+            "http://localhost:5173",
+            "https://your-frontend-domain.onrender.com"
+        ],
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type"]
     }
 })
-
 # Load XGBoost Model
 try:
     xgb_model_path = os.path.join(os.path.dirname(__file__), "xgboost_irrigation_model.pkl")

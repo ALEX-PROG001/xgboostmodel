@@ -4,7 +4,11 @@ services:
     env: python
     region: oregon
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    startCommand: gunicorn app:app --log-level debug --timeout 120
     envVars:
       - key: PYTHON_VERSION
         value: 3.8.18
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_DEBUG
+        value: "1"
