@@ -12,7 +12,9 @@ app = Flask(__name__)
 # Configure CORS to allow requests from React frontend
 CORS(app, resources={
     r"/*": {  # All routes
-        "origins": ["http://localhost:5173"],  # React dev server
+        "origins": ["http://localhost:5173"<
+                     "https://your-frontend-domain.onrender.com"
+                    ],  # React dev server
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type"]
     }
@@ -199,5 +201,7 @@ def predict_qlearning():
         print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
+# At the bottom of the file
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5001)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
